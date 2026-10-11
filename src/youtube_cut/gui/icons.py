@@ -16,6 +16,7 @@ _ICONS = {
     "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
     "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
     "check": '<path d="M20 6 9 17l-5-5"/>',
+    "minus": '<path d="M5 12h14"/>',
     "scissors": '<circle cx="6" cy="6" r="3"/><path d="M8.12 8.12 12 12"/><path d="M20 4 8.12 15.88"/>'
                 '<circle cx="6" cy="18" r="3"/><path d="M14.8 14.8 20 20"/>',
     "folder": '<path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 '

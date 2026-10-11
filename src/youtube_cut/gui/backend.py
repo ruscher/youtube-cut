@@ -22,6 +22,10 @@ _REBUILD_KEYS = {"before", "after", "merge_gap"}
 _RESEARCH_KEYS = {"fuzzy"}
 
 
+def _clip_key(clip) -> tuple:
+    return (clip.video_id, clip.start, clip.end)
+
+
 class Backend(QObject):
     configChanged = Signal()
     busyChanged = Signal()
@@ -54,7 +58,7 @@ class Backend(QObject):
 
         self._discovered.connect(self._on_discovered)
         self._videoUpdated.connect(self._on_video_updated)
-        self._clipUpdated.connect(self.clips.item_changed)
+        self._clipUpdated.connect(self._on_clip_updated)
         self._workerLog.connect(self._set_status)
         self._workerProgress.connect(self._on_progress)
         self._workerDone.connect(self._on_done)
@@ -73,6 +77,12 @@ class Backend(QObject):
     status = Property(str, lambda self: self._status, notify=statusChanged)
     progress = Property(float, lambda self: self._progress, notify=progressChanged)
     videoFilter = Property(str, lambda self: self.clips.video_filter, notify=filterChanged)
+
+    def _filter_title(self) -> str:
+        vid = self.clips.video_filter
+        return next((r.video.title for r in self.videos.results if r.video.id == vid), "") if vid else ""
+
+    videoFilterTitle = Property(str, _filter_title, notify=filterChanged)
 
     def _total_matches(self) -> int:
         return sum(len(r.matches) for r in self.videos.results)
@@ -258,7 +268,7 @@ class Backend(QObject):
 
     def _research_worker(self, pipe: Pipeline, terms: list[str]):
         results = self.videos.results
-        for i, r in enumerate(results):
+        for r in results:
             if self._cancel.is_set():
                 raise Cancelled()
             if r.words:
@@ -300,7 +310,8 @@ class Backend(QObject):
                 it.state, it.message = "error", str(e)
                 failed += 1
             else:
-                it.state, it.output, it.progress = "done", str(path), 1.0
+                # desmarca: o botão "Cortar" passa a contar só o que falta cortar
+                it.state, it.output, it.progress, it.checked = "done", str(path), 1.0, False
                 self._last_output = str(path.parent)
                 done += 1
             self._clipUpdated.emit(it)
@@ -320,17 +331,36 @@ class Backend(QObject):
         self._rebuild_clips()
 
     def _on_video_updated(self, row: int) -> None:
+        # Sinais enfileirados chegam atrasados: quando este é processado o worker
+        # pode já ter terminado o vídeo (ou a lista inteira). Por isso comparamos
+        # o que deveria existir com o que já existe, em vez de só acrescentar.
         self.videos.refresh(row)
         r = self.videos.results[row]
-        if r.status == "done" and r.matches:
-            self.clips.append_items([ClipItem(r, c) for c in Pipeline(self.settings).clips_for(r)])
+        clips = Pipeline(self.settings).clips_for(r)
+        current = [_clip_key(it.clip) for it in self.clips.items if it.result is r]
+        if [_clip_key(c) for c in clips] != current:
+            if current:
+                self._rebuild_clips()
+            else:
+                self.clips.append_items([ClipItem(r, c) for c in clips])
         self.statsChanged.emit()
 
     def _rebuild_clips(self) -> None:
+        """Recalcula os trechos preservando seleção e estado dos que não mudaram."""
+        previous = {(id(it.result), _clip_key(it.clip)): it for it in self.clips.items}
         pipe = Pipeline(self.settings)
-        items = [ClipItem(r, c) for r in self.videos.results for c in pipe.clips_for(r)]
+        items = []
+        for r in self.videos.results:
+            for c in pipe.clips_for(r):
+                old = previous.get((id(r), _clip_key(c)))
+                items.append(old if old else ClipItem(r, c))
         self.clips.set_items(items)
         self.statsChanged.emit()
+
+    def _on_clip_updated(self, item: ClipItem) -> None:
+        self.clips.item_changed(item)
+        if item.state == "done":
+            self.clips.checkedCountChanged.emit()
 
     def _on_progress(self, value: float, text: str) -> None:
         self._progress = value

@@ -112,7 +112,7 @@ def _context_html(clip: Clip) -> str:
 
 class ClipListModel(_RoleModel):
     ROLES = ("videoId", "videoTitle", "thumbnail", "startText", "endText", "durationText",
-             "contextHtml", "term", "mentions", "score", "checked", "state", "progress",
+             "contextHtml", "term", "mentions", "score", "checked", "cutState", "progress",
              "output", "message", "link", "dateText")
     checkedCountChanged = Signal()
 
@@ -142,7 +142,7 @@ class ClipListModel(_RoleModel):
             case "mentions": return len(c.matches)
             case "score": return min(m.score for m in c.matches)
             case "checked": return it.checked
-            case "state": return it.state
+            case "cutState": return it.state
             case "progress": return it.progress
             case "output": return it.output
             case "message": return it.message
