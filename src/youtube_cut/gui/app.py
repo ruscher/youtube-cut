@@ -32,6 +32,9 @@ def create_engine(backend: Backend, warnings: list[str] | None = None) -> QQmlAp
             print(text, file=sys.stderr)
 
     engine.warnings.connect(report)
+    # O QML só guarda um ponteiro C++: sem esta referência o Python poderia
+    # coletar o backend e todas as ligações passariam a ver `backend = null`.
+    engine.backend = backend
     engine.addImageProvider("icon", IconProvider())
     engine.rootContext().setContextProperty("backend", backend)
     engine.load(QUrl.fromLocalFile(str(QML_DIR / "Main.qml")))

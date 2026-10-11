@@ -1,4 +1,5 @@
 import fnmatch
+import re
 import shutil
 import subprocess
 import tomllib
@@ -49,3 +50,26 @@ def test_entry_point_targets_existing_function():
                                  "docs/03-youtube.md", "docs/04-pipeline-corte.md", "docs/05-instalacao-testes.md"])
 def test_docs_exist(doc):
     assert (ROOT / doc).stat().st_size > 500
+
+
+def _pkgbuild_vars() -> dict[str, str]:
+    text = (ROOT / "packaging" / "arch" / "PKGBUILD").read_text(encoding="utf-8")
+    return dict(re.findall(r"^(\w+)=(.*)$", text, re.MULTILINE)) | {"_text": text}
+
+
+def test_pkgbuild_matches_project():
+    cfg = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    pkg = _pkgbuild_vars()
+    assert pkg["pkgver"] == cfg["project"]["version"]
+    assert pkg["pkgname"] == "youtube-cut"
+    for dep in ("python", "pyside6", "yt-dlp", "ffmpeg"):
+        assert f"'{dep}'" in pkg["depends"]
+    for path in ("data/youtube-cut.desktop", "data/youtube-cut.svg"):
+        assert path in pkg["_text"] and (ROOT / path).exists()
+
+
+def test_docs_do_not_instruct_pip_user_install():
+    # Arch e derivados bloqueiam "pip install --user" (PEP 668); só pode aparecer como aviso
+    for doc in ("README.md", "docs/05-instalacao-testes.md"):
+        commands = [ln.strip() for ln in (ROOT / doc).read_text(encoding="utf-8").splitlines()]
+        assert not [ln for ln in commands if ln.startswith("pip install --user")], doc

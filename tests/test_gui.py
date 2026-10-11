@@ -212,3 +212,18 @@ def test_main_qml_loads_without_warnings(backend, tmp_path):
     finally:
         pass
     assert messages == []
+
+
+def test_engine_keeps_backend_alive(qapp):
+    import gc
+
+    from youtube_cut.gui.app import create_engine
+
+    messages = []
+    engine = create_engine(Backend(), messages)  # sem guardar o backend de propósito
+    gc.collect()
+    for _ in range(10):
+        QCoreApplication.processEvents()
+    assert engine.rootObjects() and messages == []
+    engine.backend.shutdown()
+    del engine

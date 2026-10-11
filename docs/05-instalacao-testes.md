@@ -11,15 +11,35 @@
 | `nodejs` ou `deno` | runtime JS exigido pelo YouTube para resolver desafios |
 | `yt-dlp-ejs` (opcional) | scripts do solucionador, sem baixar do GitHub |
 
+### Como pacote (recomendado)
+
 ```bash
-sudo pacman -S --needed python pyside6 yt-dlp ffmpeg nodejs
-pip install --user --no-deps .
-youtube-cut            # interface
+cd packaging/arch
+makepkg -si                 # instala makedepends (python-build, python-installer…), gera e instala
+youtube-cut                 # interface
 youtube-cut scan --help
+sudo pacman -R youtube-cut  # remover
 ```
 
-Atalho no menu: copie `data/youtube-cut.desktop` para `~/.local/share/applications/` e
-`data/youtube-cut.svg` para `~/.local/share/icons/hicolor/scalable/apps/`.
+O `PKGBUILD` usa o próprio repositório como fonte (`$startdir/../..`), gera o wheel com
+`python -m build --no-isolation` e instala com `python -m installer`, mais o `.desktop`, o
+ícone em `hicolor/scalable` e o README.
+
+### Sem instalar
+
+```bash
+sudo pacman -S --needed python pyside6 yt-dlp ffmpeg nodejs
+PYTHONPATH=src python -m youtube_cut
+```
+
+`pip install --user` é bloqueado no Arch (PEP 668, `externally-managed-environment`). Para
+desenvolver, use um venv com `--system-site-packages` (ele reaproveita o PySide6 do sistema):
+
+```bash
+python -m venv --system-site-packages .venv
+.venv/bin/pip install -e . pytest
+.venv/bin/youtube-cut
+```
 
 ## Onde ficam os dados
 

@@ -20,14 +20,25 @@ do YouTube e recorte só aqueles trechos, sem baixar as lives inteiras.
 ## Instalação (Arch / BigLinux / Manjaro)
 
 ```bash
-sudo pacman -S --needed python pyside6 yt-dlp ffmpeg nodejs   # nodejs (ou deno) resolve os desafios JS do YouTube
-git clone <este-repositório> youtube-cut && cd youtube-cut
-pip install --user --no-deps .                                  # instala o comando youtube-cut
-install -Dm644 data/youtube-cut.desktop ~/.local/share/applications/youtube-cut.desktop
-install -Dm644 data/youtube-cut.svg ~/.local/share/icons/hicolor/scalable/apps/youtube-cut.svg
+git clone <este-repositório> youtube-cut
+cd youtube-cut/packaging/arch
+makepkg -si          # instala dependências, gera e instala o pacote youtube-cut
 ```
 
-Para rodar sem instalar: `PYTHONPATH=src python -m youtube_cut`.
+O pacote coloca o comando `youtube-cut`, o atalho no menu e o ícone. Para remover:
+`sudo pacman -R youtube-cut`. Recomendado: `sudo pacman -S --needed nodejs` (ou `deno`),
+o runtime JS que o YouTube exige para liberar os downloads.
+
+Para rodar sem instalar, a partir da raiz do repositório:
+
+```bash
+sudo pacman -S --needed pyside6 yt-dlp ffmpeg nodejs
+PYTHONPATH=src python -m youtube_cut            # interface
+PYTHONPATH=src python -m youtube_cut scan --help
+```
+
+> `pip install --user` não funciona no Arch e derivados (PEP 668, "externally-managed-environment").
+> Use o PKGBUILD acima ou um ambiente virtual (ver [Desenvolvimento](#desenvolvimento)).
 
 ## Uso
 
