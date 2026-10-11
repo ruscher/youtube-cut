@@ -126,18 +126,30 @@ def cut_local(
 
 
 def _run(cmd, duration, progress, cancel) -> str:
+    if cancel is not None and cancel.is_set():
+        raise InterruptedError("cancelado")
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
     stderr_chunks: list[str] = []
     reader = threading.Thread(target=lambda: stderr_chunks.append(proc.stderr.read()), daemon=True)
     reader.start()
+
+    def watch_cancel() -> None:
+        # O FFmpeg só escreve progresso a cada ~0,5 s; não esperamos por ele para cancelar.
+        while proc.poll() is None:
+            if cancel.wait(0.05):
+                proc.terminate()
+                return
+
+    if cancel is not None:
+        threading.Thread(target=watch_cancel, daemon=True).start()
     for line in proc.stdout:
-        if cancel is not None and cancel.is_set():
-            proc.terminate()
-            proc.wait()
-            raise InterruptedError("cancelado")
         key, _, value = line.strip().partition("=")
         if progress and key == "out_time_us" and value.isdigit():
             progress(min(1.0, int(value) / 1e6 / duration))
     proc.wait()
     reader.join(timeout=5)
+    if cancel is not None and cancel.is_set():
+        output_file = Path(cmd[-1])
+        output_file.unlink(missing_ok=True)  # não deixa arquivo pela metade
+        raise InterruptedError("cancelado")
     return "" if proc.returncode == 0 else "".join(stderr_chunks)

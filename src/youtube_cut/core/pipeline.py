@@ -13,6 +13,7 @@ import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
+from urllib.parse import unquote, urlparse
 
 from . import ffmpeg
 from .clips import build_clips
@@ -36,11 +37,19 @@ class VideoResult:
     error: str = ""
 
 
-def is_local_source(text: str) -> bool:
+def local_path(text: str) -> Path | None:
+    """Caminho local (aceita ``file://`` com %-codificação) ou None se não existir."""
     text = text.strip()
+    if not text:
+        return None
     if text.startswith("file://"):
-        text = text[7:]
-    return bool(text) and Path(text).expanduser().exists()
+        text = unquote(urlparse(text).path)
+    path = Path(text).expanduser()
+    return path.resolve() if path.exists() else None
+
+
+def is_local_source(text: str) -> bool:
+    return local_path(text) is not None
 
 
 class Pipeline:
@@ -77,7 +86,7 @@ class Pipeline:
         return [VideoResult(v) for v in videos]
 
     def _discover_local(self, text: str) -> list[VideoInfo]:
-        path = Path(text.removeprefix("file://")).expanduser().resolve()
+        path = local_path(text)
         files = (
             sorted(p for p in path.iterdir() if p.suffix.lower() in VIDEO_EXTS)
             if path.is_dir() else [path]
