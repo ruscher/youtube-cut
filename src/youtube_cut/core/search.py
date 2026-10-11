@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import re
 import unicodedata
+from collections import defaultdict
 from difflib import SequenceMatcher
 
 from .models import Match, Word
@@ -37,13 +38,31 @@ def parse_terms(raw: str | list[str]) -> list[str]:
     return terms
 
 
-def _token_score(token: str, target: str, fuzzy: float) -> float:
-    if token == target:
-        return 1.0
-    if fuzzy <= 0 or len(target) < _FUZZY_MIN_LEN or not token:
-        return 0.0
-    ratio = SequenceMatcher(None, token, target).ratio()
-    return ratio if ratio >= 1.0 - fuzzy else 0.0
+def _score_table(target: str, vocabulary: set[str], fuzzy: float) -> dict[str, float]:
+    """Semelhança de cada palavra distinta da transcrição com ``target``.
+
+    Calcular por palavra distinta (alguns milhares) em vez de por ocorrência
+    (dezenas de milhares numa live longa) torna a busca aproximada ~10x mais
+    rápida; os limites superiores baratos do SequenceMatcher descartam o resto.
+    """
+    if fuzzy <= 0 or len(target) < _FUZZY_MIN_LEN:
+        return {target: 1.0} if target in vocabulary else {}
+    threshold = 1.0 - fuzzy
+    matcher = SequenceMatcher(None, "", target)
+    table: dict[str, float] = {}
+    for token in vocabulary:
+        if token == target:
+            table[token] = 1.0
+            continue
+        if not token or 2 * min(len(token), len(target)) / (len(token) + len(target)) < threshold:
+            continue
+        matcher.set_seq1(token)
+        if matcher.real_quick_ratio() < threshold or matcher.quick_ratio() < threshold:
+            continue
+        ratio = matcher.ratio()
+        if ratio >= threshold:
+            table[token] = ratio
+    return table
 
 
 def find_matches(
@@ -57,6 +76,10 @@ def find_matches(
     ``fuzzy`` é a tolerância: 0 = só exato; 0.2 = aceita ~80% de semelhança.
     """
     tokens = [normalize(w.text) for w in words]
+    vocabulary = set(tokens)
+    positions: dict[str, list[int]] = defaultdict(list)
+    for i, tok in enumerate(tokens):
+        positions[tok].append(i)
     matches: list[Match] = []
 
     for term in terms:
@@ -64,10 +87,12 @@ def find_matches(
         if not target:
             continue
         n = len(target)
-        for i in range(len(tokens) - n + 1):
+        tables = [_score_table(t, vocabulary, fuzzy) for t in target]
+        starts = sorted(i for tok in tables[0] for i in positions[tok] if i + n <= len(tokens))
+        for i in starts:
             scores = []
             for k in range(n):
-                s = _token_score(tokens[i + k], target[k], fuzzy)
+                s = tables[k].get(tokens[i + k])
                 if not s:
                     break
                 scores.append(s)

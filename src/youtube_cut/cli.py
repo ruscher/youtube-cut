@@ -63,16 +63,24 @@ def _settings_from_args(args):
 
 
 def _run_scan(args) -> int:
-    from .core.pipeline import Pipeline, export_report
+    from .core.pipeline import Pipeline
     from .core.search import parse_terms
-    from .core.timefmt import format_short
-    from .core.youtube import Cancelled
 
     settings = _settings_from_args(args)
     terms = parse_terms(args.terms)
     cancel = threading.Event()
-    signal.signal(signal.SIGINT, lambda *_: cancel.set())
+    previous_handler = signal.signal(signal.SIGINT, lambda *_: cancel.set())
     pipe = Pipeline(settings, log=lambda m: print(f"  · {m}", file=sys.stderr), cancel=cancel)
+    try:
+        return _scan_and_cut(args, pipe, settings, terms, cancel)
+    finally:
+        signal.signal(signal.SIGINT, previous_handler)
+
+
+def _scan_and_cut(args, pipe, settings, terms, cancel) -> int:
+    from .core.pipeline import export_report
+    from .core.timefmt import format_short
+    from .core.youtube import Cancelled
 
     try:
         results = pipe.discover(args.source)
