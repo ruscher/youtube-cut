@@ -8,6 +8,8 @@ QtObject {
     readonly property bool dark: mode === "dark"
         || (mode === "system" && Qt.styleHints.colorScheme !== Qt.ColorScheme.Light)
 
+    // Toda cor usada como texto passa em WCAG AA (4,5:1) — ver tests/test_theme.py.
+
     readonly property color bg: dark ? "#0d0e15" : "#eef0f6"
     readonly property color surface: dark ? Qt.rgba(0.12, 0.12, 0.19, 0.72) : Qt.rgba(1, 1, 1, 0.74)
     readonly property color surfaceStrong: dark ? "#171826" : "#fbfbfe"
@@ -17,13 +19,13 @@ QtObject {
     readonly property color borderStrong: dark ? Qt.rgba(1, 1, 1, 0.18) : Qt.rgba(0.06, 0.08, 0.2, 0.22)
     readonly property color text: dark ? "#ececf4" : "#171a2b"
     readonly property color textMuted: dark ? "#a2a4bb" : "#545873"
-    readonly property color textFaint: dark ? "#71748e" : "#83879f"
-    readonly property color accent: dark ? "#22d3ee" : "#0891b2"
-    readonly property color accent2: dark ? "#d946ef" : "#c026d3"
+    readonly property color textFaint: dark ? "#8a8da6" : "#62667e"
+    readonly property color accent: dark ? "#22d3ee" : "#155e75"
+    readonly property color accent2: dark ? "#e879f9" : "#a21caf"
     readonly property color accentText: "#ffffff"
-    readonly property color success: dark ? "#34d399" : "#059669"
-    readonly property color warning: dark ? "#fbbf24" : "#b45309"
-    readonly property color danger: dark ? "#fb7185" : "#e11d48"
+    readonly property color success: dark ? "#34d399" : "#065f46"
+    readonly property color warning: dark ? "#fbbf24" : "#92400e"
+    readonly property color danger: dark ? "#fb7185" : "#9f1239"
 
     readonly property int radius: 14
     readonly property int radiusSmall: 10

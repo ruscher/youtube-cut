@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=YouTube Cut
+GenericName=Video Clip Finder
+GenericName[pt_BR]=Localizador de trechos de vídeo
+Comment=Find when a word is spoken in YouTube videos and cut those moments
+Comment[pt_BR]=Encontre quando um nome é dito nos vídeos do YouTube e recorte esses trechos
+Exec=youtube-cut
+Icon=youtube-cut
+Terminal=false
+Categories=AudioVideo;Video;AudioVideoEditing;Qt;
+Keywords=youtube;video;cut;clip;subtitle;transcript;legenda;corte;
+StartupWMClass=youtube-cut
