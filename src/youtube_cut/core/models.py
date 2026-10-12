@@ -45,7 +45,12 @@ class Match:
     spoken: str  # texto exatamente como aparece na transcrição
     before: str = ""  # palavras anteriores, para dar contexto
     after: str = ""  # palavras seguintes
-    score: float = 1.0  # 1.0 = exato; menor que 1 = aproximado (fuzzy)
+    score: float = 1.0  # fala: 1.0 = exato, < 1 = aproximado (fuzzy); rosto: similaridade
+    kind: str = "speech"  # speech (termo dito na legenda) | face (pessoa aparece no vídeo)
+
+    @property
+    def is_face(self) -> bool:
+        return self.kind == "face"
 
     @property
     def context(self) -> str:

@@ -56,7 +56,8 @@ ApplicationWindow {
     Aurora { anchors.fill: parent }
 
     Shortcut { sequence: "Ctrl+,"; onActivated: settingsDrawer.open() }
-    Shortcut { sequence: "Escape"; enabled: backend.busy && !settingsDrawer.visible; onActivated: backend.cancel() }
+    Shortcut { sequence: "Ctrl+I"; onActivated: aiDrawer.open() }
+    Shortcut { sequence: "Escape"; enabled: backend.busy && !settingsDrawer.visible && !aiDrawer.visible; onActivated: backend.cancel() }
     Shortcut { sequence: "Ctrl+L"; onActivated: { sourceField.forceActiveFocus(); sourceField.selectAll() } }
     Shortcut { sequence: "Ctrl+Return"; enabled: !backend.busy && clips.checkedCount > 0; onActivated: backend.cutSelected() }
 
@@ -119,6 +120,12 @@ ApplicationWindow {
                 onClicked: backend.setConfig("theme", Theme.dark ? "light" : "dark")
             }
             AppButton {
+                iconName: "sparkles"
+                text: "IA local"
+                tip: "Reconhecimento facial e legendas por Whisper (Ctrl+I)"
+                onClicked: aiDrawer.open()
+            }
+            AppButton {
                 iconName: "sliders"
                 text: "Configurações"
                 tip: "Ctrl+,"
@@ -173,7 +180,9 @@ ApplicationWindow {
                         Layout.fillWidth: true
                         iconName: "search"
                         text: win.cfg.terms
-                        placeholderText: "Nomes ou palavras, separados por vírgula — ex.: Bárbara, Ana Paula"
+                        placeholderText: backend.faceSearchActive
+                            ? "Nomes ou palavras (opcional: o rosto já será procurado)"
+                            : "Nomes ou palavras, separados por vírgula — ex.: Bárbara, Ana Paula"
                         onAccepted: win.startOrCancel()
                         Accessible.name: "Termos a procurar"
                         Component.onCompleted: if (sourceField.text) forceActiveFocus()
@@ -190,9 +199,10 @@ ApplicationWindow {
                     AppButton {
                         Layout.preferredWidth: 150
                         Layout.preferredHeight: 44
+                        readonly property bool faceOnly: backend.faceSearchActive && termsField.text.trim() === ""
                         variant: backend.busy ? "danger" : "primary"
-                        iconName: backend.busy ? "x" : "search"
-                        text: backend.busy ? "Cancelar" : "Buscar"
+                        iconName: backend.busy ? "x" : faceOnly ? "scan-face" : "search"
+                        text: backend.busy ? "Cancelar" : faceOnly ? "Buscar rosto" : "Buscar"
                         tip: backend.busy ? "Esc" : "Enter"
                         onClicked: win.startOrCancel()
                     }
@@ -222,6 +232,20 @@ ApplicationWindow {
                         visible: win.cfg.cookies_browser !== ""
                         text: "Login do " + win.cfg.cookies_browser
                         iconName: "user"
+                    }
+                    Chip {
+                        visible: backend.faceSearchActive
+                        text: "Rosto: " + (backend.faceInfo.label || "pessoa")
+                        iconName: "scan-face"
+                        tone: Theme.accent2
+                        tip: "Cada vídeo também é analisado em busca deste rosto. Ajuste em IA local (Ctrl+I)."
+                    }
+                    Chip {
+                        visible: win.cfg.whisper_fallback && backend.aiStatus.transcriber !== ""
+                        text: "Legenda por IA"
+                        iconName: "mic"
+                        tone: Theme.accent2
+                        tip: "Vídeos sem legenda são transcritos no computador (" + backend.aiStatus.transcriber + ", modelo " + win.cfg.whisper_model + ")."
                     }
                 }
             }
@@ -350,7 +374,8 @@ ApplicationWindow {
                             visible: win.clips.count === 0
                             busy: backend.busy && backend.phase !== "cutting"
                             iconName: backend.hasResults ? "search" : "scissors"
-                            title: backend.busy ? "Lendo as legendas…"
+                            title: backend.busy ? (backend.phase === "faces" || (backend.faceSearchActive && win.cfg.terms === "")
+                                                   ? "Procurando o rosto nos vídeos…" : "Lendo as legendas…")
                                  : backend.hasResults ? "Nenhuma menção encontrada"
                                  : "Encontre o momento exato"
                             message: backend.busy ? "Os trechos aparecem aqui assim que forem encontrados."
@@ -451,6 +476,7 @@ ApplicationWindow {
     }
 
     SettingsDrawer { id: settingsDrawer }
+    AiDrawer { id: aiDrawer; objectName: "aiDrawer" }
 
     Toast {
         id: toast

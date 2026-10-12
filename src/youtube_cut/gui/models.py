@@ -53,11 +53,13 @@ class _RoleModel(QAbstractListModel):
 
 class VideoListModel(_RoleModel):
     ROLES = ("videoId", "title", "status", "matchCount", "subtitle", "error",
-             "durationText", "dateText", "thumbnail", "isLocal", "url")
+             "durationText", "dateText", "thumbnail", "isLocal", "url",
+             "speechCount", "faceCount", "progress", "canTranscribe")
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.results: list[VideoResult] = []
+        self.transcriber_available = False  # algum motor Whisper instalado (definido pelo Backend)
 
     def rowCount(self, parent=QModelIndex()):  # noqa: N802
         return 0 if parent.isValid() else len(self.results)
@@ -77,6 +79,10 @@ class VideoListModel(_RoleModel):
             case "thumbnail": return _thumb(r)
             case "isLocal": return v.is_local
             case "url": return v.url
+            case "speechCount": return len(r.matches) - len(r.face_matches)
+            case "faceCount": return len(r.face_matches)
+            case "progress": return float(r.progress)
+            case "canTranscribe": return self.transcriber_available and not r.words and r.status == "nosubs"
         return None
 
     def set_results(self, results: list[VideoResult]) -> None:
@@ -104,16 +110,25 @@ class ClipItem:
 
 
 def _context_html(clip: Clip) -> str:
-    """Frase com o termo destacado (o QML pinta <b> com a cor de destaque)."""
-    m = clip.matches[0]
+    """Frase com o termo destacado (o QML pinta <b> com a cor de destaque).
+
+    Em trecho só de rosto não há fala: descreve quem aparece."""
     esc = html.escape
-    return f"{esc(m.before)} <b>{esc(m.spoken)}</b> {esc(m.after)}".strip()
+    speech = next((m for m in clip.matches if not m.is_face), None)
+    if speech is None:
+        return f"<b>{esc(clip.matches[0].spoken)}</b> aparece no vídeo"
+    return f"{esc(speech.before)} <b>{esc(speech.spoken)}</b> {esc(speech.after)}".strip()
+
+
+def _clip_kind(clip: Clip) -> str:
+    kinds = {m.kind for m in clip.matches}
+    return "mixed" if len(kinds) > 1 else kinds.pop()
 
 
 class ClipListModel(_RoleModel):
     ROLES = ("videoId", "videoTitle", "thumbnail", "startText", "endText", "durationText",
              "contextHtml", "term", "mentions", "score", "checked", "cutState", "progress",
-             "output", "message", "link", "dateText")
+             "output", "message", "link", "dateText", "kind", "faceScore")
     checkedCountChanged = Signal()
 
     def __init__(self, parent=None):
@@ -140,7 +155,10 @@ class ClipListModel(_RoleModel):
             case "contextHtml": return _context_html(c)
             case "term": return c.matches[0].term
             case "mentions": return len(c.matches)
-            case "score": return min(m.score for m in c.matches)
+            # "score" é a confiança da transcrição; a similaridade do rosto vai em "faceScore"
+            case "score": return min((m.score for m in c.matches if not m.is_face), default=1.0)
+            case "faceScore": return max((m.score for m in c.matches if m.is_face), default=0.0)
+            case "kind": return _clip_kind(c)
             case "checked": return it.checked
             case "cutState": return it.state
             case "progress": return it.progress

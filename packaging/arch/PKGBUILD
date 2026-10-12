@@ -13,7 +13,9 @@ optdepends=('nodejs: runtime JS exigido pelo YouTube (ou deno)'
             'deno: alternativa ao nodejs'
             'yt-dlp-ejs: solucionador de desafios sem baixar do GitHub'
             'libva-mesa-driver: corte local acelerado por GPU AMD (VA-API)'
-            'intel-media-driver: corte local acelerado por GPU Intel (VA-API)')
+            'intel-media-driver: corte local acelerado por GPU Intel (VA-API)'
+            'python-opencv: reconhecimento facial (detector YuNet e reconhecedor SFace)'
+            'whisper-cpp: legenda por IA quando o vídeo não tiver legenda')
 makedepends=('python-build' 'python-installer' 'python-setuptools' 'python-wheel')
 
 # o código-fonte é o próprio repositório, dois níveis acima
