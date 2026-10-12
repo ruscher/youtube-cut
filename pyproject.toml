@@ -16,6 +16,9 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=8"]
+# IA local (opcional): no Arch prefira os pacotes python-opencv e whisper-cpp
+faces = ["opencv-python>=4.7", "numpy"]
+whisper = ["faster-whisper>=1.0"]
 
 [project.scripts]
 youtube-cut = "youtube_cut.cli:main"

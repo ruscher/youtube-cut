@@ -263,6 +263,51 @@ class YouTubeClient:
                 self._sleep(delays[attempt])
         raise AssertionError("unreachable")
 
+    # -- mídia para análise local (transcrição e rostos) -------------------
+
+    def download_audio(self, video: VideoInfo, dest_dir: Path) -> Path:
+        """Baixa só o áudio, na menor qualidade boa para fala (~50 kbps)."""
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        opts = self._base_opts() | {
+            "format": "ba[abr<=80]/wa[abr>=32]/ba/b",
+            "outtmpl": {"default": str(dest_dir / f"{video.id}.%(ext)s")},
+            "noplaylist": True,
+            "overwrites": True,
+            "progress_hooks": [lambda _d: self._check_cancel()],
+        }
+        self._throttle()
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(video.url, download=True)
+                path = Path(ydl.prepare_filename(info))
+        except DownloadError as e:
+            if isinstance(e.exc_info[1] if e.exc_info else None, Cancelled):
+                raise Cancelled() from e
+            raise YouTubeError(_friendly_error(e)) from e
+        if not path.exists():
+            raise YouTubeError("O yt-dlp terminou sem gerar o arquivo de áudio.")
+        return path
+
+    def video_stream(self, video: VideoInfo, max_height: int = 360) -> tuple[str, dict[str, str]]:
+        """URL direta de um stream só de vídeo, em baixa resolução, e os cabeçalhos
+        HTTP para o FFmpeg lê-lo sem salvar o vídeo em disco."""
+        opts = self._base_opts() | {
+            "skip_download": True,
+            "format": f"bv*[height<={max_height}]/wv*/b[height<={max_height}]/w",
+        }
+        self._throttle()
+        try:
+            with yt_dlp.YoutubeDL(opts) as ydl:
+                info = ydl.extract_info(video.url, download=False)
+        except DownloadError as e:
+            raise YouTubeError(_friendly_error(e)) from e
+        chosen = (info.get("requested_formats") or [info])[0]
+        if not chosen.get("url"):
+            raise YouTubeError("O YouTube não ofereceu um stream de vídeo para analisar.")
+        if info.get("duration"):
+            video.duration = info["duration"]
+        return chosen["url"], dict(chosen.get("http_headers") or info.get("http_headers") or {})
+
     # -- download de trechos ----------------------------------------------
 
     def download_clip(

@@ -7,7 +7,7 @@ import pytest
 
 os.environ.setdefault("QT_QUICK_BACKEND", "software")
 
-from PySide6.QtCore import QCoreApplication, QEventLoop, QSize  # noqa: E402
+from PySide6.QtCore import QCoreApplication, QEventLoop, QObject, QSize  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 import youtube_cut.core.config as config  # noqa: E402
@@ -227,3 +227,128 @@ def test_engine_keeps_backend_alive(qapp):
     assert engine.rootObjects() and messages == []
     engine.backend.shutdown()
     del engine
+
+
+# -- IA local -------------------------------------------------------------
+
+def _face_result(vid="vid12345678"):
+    r = _result(vid, n=1)
+    face = Match(vid, "Rosto: Bárbara", 300.0, 320.0, "Bárbara", score=0.82, kind="face")
+    r.face_matches = [face]
+    r.matches = sorted(r.matches + [face], key=lambda m: m.start)
+    return r
+
+
+def test_video_model_ai_roles(qapp):
+    model = VideoListModel()
+    r = _face_result()
+    bare = VideoResult(VideoInfo("semlegenda1", "Sem legenda", "https://youtu.be/x"), status="nosubs")
+    model.set_results([r, bare])
+    assert role_value(model, 0, "speechCount") == 1 and role_value(model, 0, "faceCount") == 1
+    assert role_value(model, 0, "progress") == -1.0
+    assert role_value(model, 1, "canTranscribe") is False  # sem motor instalado
+    model.transcriber_available = True
+    assert role_value(model, 1, "canTranscribe") is True
+    assert role_value(model, 0, "canTranscribe") is False  # já tem legenda
+
+
+def test_clip_model_face_clip_has_its_own_score_and_context(qapp):
+    r = _face_result()
+    model = ClipListModel()
+    face_clip = Clip(r.video.id, 299.0, 321.0, [r.face_matches[0]])
+    mixed = Clip(r.video.id, 59.0, 66.0, [r.matches[0], Match(r.video.id, "Rosto: Bárbara", 60.0, 64.0,
+                                                              "Bárbara", score=0.7, kind="face")])
+    model.set_items([ClipItem(r, face_clip), ClipItem(r, mixed)])
+    assert role_value(model, 0, "kind") == "face"
+    assert role_value(model, 0, "contextHtml") == "<b>Bárbara</b> aparece no vídeo"
+    assert role_value(model, 0, "score") == 1.0  # nada de "≈ %" de transcrição em trecho de rosto
+    assert role_value(model, 0, "faceScore") == 0.82
+    assert role_value(model, 1, "kind") == "mixed"
+    assert "<b>Bárbara</b>" in role_value(model, 1, "contextHtml") and "oi" in role_value(model, 1, "contextHtml")
+
+
+def test_start_scan_needs_terms_or_active_face(backend):
+    backend.startScan("@canal", "")
+    assert not backend.busy and "IA local" in backend.toasts[-1][0]
+
+
+def test_transcribe_video_without_engine_explains(backend):
+    backend.videos.set_results([VideoResult(VideoInfo("semlegenda1", "x", "https://youtu.be/x"), status="nosubs")])
+    backend._ai = {**backend._ai, "transcriber": ""}
+    backend.transcribeVideo(0)
+    assert not backend.busy and "whisper-cpp" in backend.toasts[-1][0]
+
+
+def test_face_reference_flow(backend, tmp_path, monkeypatch):
+    import numpy as np
+    from PySide6.QtCore import QUrl
+
+    from youtube_cut.core import face_detector as fd
+    from youtube_cut.core.pipeline import Pipeline
+
+    preview = tmp_path / "rosto.png"
+    preview.write_bytes(b"png")
+    monkeypatch.setattr(Pipeline, "face_reference", lambda self: fd.FaceReference(
+        self.settings.face_label, np.ones(128), self.settings.face_photo_list, str(preview)))
+    wait_until(lambda: backend.aiStatus["ready"])
+    backend._ai = {**backend._ai, "facesAvailable": True}
+
+    photo = tmp_path / "barbara_silva.jpg"
+    backend.setFacePhotos([QUrl.fromLocalFile(str(photo))])
+    wait_until(lambda: backend.faceInfo["state"] == "ready")
+    assert backend.faceInfo["label"] == "barbara silva" and backend.faceInfo["photos"] == 1
+    assert backend.faceInfo["preview"].startswith("file://")
+    assert backend.config["face_enabled"] and backend.faceSearchActive
+
+    backend.setConfig("face_enabled", False)
+    assert not backend.faceSearchActive
+    backend.clearFace()
+    assert backend.faceInfo["state"] == "" and backend.config["face_photos"] == ""
+
+
+def test_face_reference_error_is_shown_and_disables_face_search(backend, tmp_path, monkeypatch):
+    from youtube_cut.core import face_detector as fd
+    from youtube_cut.core.pipeline import Pipeline
+
+    def no_face(self):
+        raise fd.FaceError("Nenhum rosto encontrado em gato.jpg.")
+
+    monkeypatch.setattr(Pipeline, "face_reference", no_face)
+    wait_until(lambda: backend.aiStatus["ready"])
+    backend._ai = {**backend._ai, "facesAvailable": True}
+    backend.setFacePhotos([str(tmp_path / "gato.jpg")])
+    wait_until(lambda: backend.faceInfo["state"] == "error")
+    assert "gato.jpg" in backend.faceInfo["message"] and not backend.faceSearchActive
+
+
+def test_activity_console_keeps_recent_lines_without_repeats(backend):
+    backend.clearLog()
+    backend._set_status("Analisando 1 de 2")
+    backend._set_status("Analisando 1 de 2")
+    backend._set_status("Pronto")
+    lines = backend.logModel.stringList()
+    assert [ln[10:] for ln in lines] == ["Analisando 1 de 2", "Pronto"]
+    for i in range(600):
+        backend._log(f"linha {i}")
+    assert len(backend.logModel.stringList()) == 500
+    backend.clearLog()
+    assert backend.logModel.stringList() == []
+
+
+def test_ai_drawer_renders_in_both_themes(backend, tmp_path):
+    from youtube_cut.gui.app import create_engine
+
+    messages = []
+    engine = create_engine(backend, messages)
+    window = engine.rootObjects()[0]
+    drawer = window.findChild(QObject, "aiDrawer")
+    assert drawer is not None
+    for theme in ("dark", "light"):
+        backend.setConfig("theme", theme)
+        drawer.setProperty("visible", True)
+        for _ in range(30):
+            QCoreApplication.processEvents()
+        assert not window.grabWindow().isNull()
+    drawer.setProperty("visible", False)
+    window.close()
+    assert messages == []

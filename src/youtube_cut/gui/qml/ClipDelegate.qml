@@ -21,6 +21,8 @@ Rectangle {
     required property string message
     required property string link
     required property string dateText
+    required property string kind  // speech | face | mixed
+    required property real faceScore
     property bool showVideo: true
 
     width: ListView.view ? ListView.view.width : 600
@@ -85,6 +87,15 @@ Rectangle {
                 Chip { text: root.durationText; iconName: "clock" }
                 Chip { visible: root.mentions > 1; text: root.mentions + " menções juntas"; tone: Theme.accent2 }
                 Chip {
+                    visible: root.kind !== "speech"
+                    text: "Rosto · " + Math.round(root.faceScore * 100) + "%"
+                    iconName: "scan-face"
+                    tone: Theme.accent2
+                    tip: root.kind === "mixed"
+                         ? "O nome é dito enquanto a pessoa aparece. Similaridade com a foto de referência."
+                         : "Trecho em que a pessoa aparece. Similaridade com a foto de referência."
+                }
+                Chip {
                     visible: root.score < 1
                     text: "≈ " + Math.round(root.score * 100) + "%"
                     tone: Theme.warning
@@ -107,8 +118,10 @@ Rectangle {
             Text {
                 Layout.fillWidth: true
                 textFormat: Text.StyledText
-                text: "…" + root.contextHtml.replace("<b>", "<b><font color=\"" + Theme.accent + "\">")
-                                             .replace("</b>", "</font></b>") + "…"
+                // reticências indicam trecho de fala; o rosto é descrito por inteiro
+                readonly property string dots: root.kind === "face" ? "" : "…"
+                text: dots + root.contextHtml.replace("<b>", "<b><font color=\"" + Theme.accent + "\">")
+                                             .replace("</b>", "</font></b>") + dots
                 color: Theme.textMuted
                 font.pixelSize: 14
                 wrapMode: Text.WordWrap

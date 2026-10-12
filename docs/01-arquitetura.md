@@ -29,6 +29,9 @@
    playlist) ou detecta caminho local / `file://` → lista de `VideoResult`.
 2. `scan(result, termos)` → `load_words` baixa (ou lê do cache) **uma** faixa de legenda e
    converte em `list[Word]` (início, fim, texto) → `find_matches` → `list[Match]`.
+   Sem legenda, `core/subtitles_fallback` pode transcrever o áudio localmente (Whisper); com
+   fotos de referência, `core/face_detector` acrescenta trechos `Match(kind="face")` onde a
+   pessoa aparece. Ver [06 — IA local](06-ia-local.md).
 3. `clips_for(result)` → `build_clips` aplica margens, limita à duração e funde trechos
    próximos → `list[Clip]`.
 4. `cut(video, clip, saída)` → `YouTubeClient.download_clip` (só o intervalo, via yt-dlp

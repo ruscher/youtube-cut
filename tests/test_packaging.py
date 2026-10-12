@@ -47,7 +47,8 @@ def test_entry_point_targets_existing_function():
 
 
 @pytest.mark.parametrize("doc", ["README.md", "docs/01-arquitetura.md", "docs/02-design-ux.md",
-                                 "docs/03-youtube.md", "docs/04-pipeline-corte.md", "docs/05-instalacao-testes.md"])
+                                 "docs/03-youtube.md", "docs/04-pipeline-corte.md", "docs/05-instalacao-testes.md",
+                                 "docs/06-ia-local.md"])
 def test_docs_exist(doc):
     assert (ROOT / doc).stat().st_size > 500
 

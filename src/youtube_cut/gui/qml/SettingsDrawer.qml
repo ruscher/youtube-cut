@@ -26,27 +26,6 @@ Drawer {
         onAccepted: backend.setConfig("output_dir", backend.urlToPath(selectedFolder.toString()))
     }
 
-    component Section: ColumnLayout {
-        id: section
-        property string title
-        property string iconName
-        default property alias rows: body.data
-        Layout.fillWidth: true
-        spacing: 14
-        RowLayout {
-            spacing: 8
-            Icon { name: section.iconName; size: 16; color: Theme.accent }
-            Text {
-                text: section.title.toUpperCase()
-                color: Theme.textMuted
-                font.pixelSize: 11
-                font.weight: Font.Bold
-                font.letterSpacing: 1.2
-            }
-        }
-        ColumnLayout { id: body; Layout.fillWidth: true; spacing: 18 }
-    }
-
     ColumnLayout {
         anchors.fill: parent
         spacing: 0
@@ -76,11 +55,9 @@ Drawer {
 
                 Item { implicitHeight: 1 }
 
-                Section {
+                DrawerSection {
                     title: "Busca"
                     iconName: "search"
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 20
 
                     SettingRow {
                         label: "Idioma da legenda"
@@ -125,11 +102,9 @@ Drawer {
                     }
                 }
 
-                Section {
+                DrawerSection {
                     title: "Corte"
                     iconName: "scissors"
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 20
 
                     SettingRow {
                         label: "Margem antes da menção"
@@ -188,11 +163,9 @@ Drawer {
                     }
                 }
 
-                Section {
+                DrawerSection {
                     title: "Conta do YouTube"
                     iconName: "user"
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 20
 
                     SettingRow {
                         label: "Usar login do navegador"
@@ -218,11 +191,9 @@ Drawer {
                     }
                 }
 
-                Section {
+                DrawerSection {
                     title: "Aparência"
                     iconName: "palette"
-                    Layout.leftMargin: 20
-                    Layout.rightMargin: 20
                     Layout.bottomMargin: 24
 
                     SettingRow {

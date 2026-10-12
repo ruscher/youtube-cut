@@ -50,6 +50,18 @@ class Settings:
     output_dir: str = ""
     allow_remote_ejs: bool = False
     theme: str = "system"  # system | dark | light
+    # IA local
+    whisper_fallback: bool = False  # transcreve no computador quando não há legenda
+    whisper_model: str = "small"  # tiny | base | small | medium
+    face_enabled: bool = False  # procura também o rosto em cada vídeo
+    face_photos: str = ""  # caminhos das fotos de referência, um por linha
+    face_label: str = ""  # nome mostrado nos trechos ("Rosto: Bárbara")
+    face_threshold: float = 0.38  # similaridade mínima (SFace: 0,363 = mesma pessoa)
+    face_fps: float = 1.0  # quadros analisados por segundo de vídeo
+
+    @property
+    def face_photo_list(self) -> list[str]:
+        return [p for p in self.face_photos.splitlines() if p.strip()]
 
     def __post_init__(self) -> None:
         if not self.output_dir:
